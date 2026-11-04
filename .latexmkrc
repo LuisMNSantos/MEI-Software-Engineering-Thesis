@@ -12,3 +12,7 @@ sub makeglossaries {
      if ($silent) { unshift @args, "-q"; }
      return system "makeglossaries", @args;
 }
+
+# Ficheiros auxiliares em build/ (o PDF fica na raiz)
+$aux_dir = "build";
+$out_dir = ".";
