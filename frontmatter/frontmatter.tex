@@ -21,16 +21,6 @@
 %----------------------------------------------------------------------------------------
 
 \begin{abstract}
-
-Organisations in digital health routinely perform time-consuming manual tasks as part of their research and development (R\&D) processes — including project documentation, workspace organisation, and the generation of recurring report sections. Large Language Model (LLM) agents equipped with tools and Retrieval-Augmented Generation (RAG) offer a promising approach for automating these workflows. However, the healthcare domain introduces critical constraints: model hallucinations, the risk of irreversible actions, strict traceability requirements, and privacy obligations under the GDPR and the EU AI Act.
-
-This dissertation proposes a framework for designing LLM-based agents that automate selected internal R\&D processes while preserving Human-in-the-Loop (HITL) supervision at critical decision points. Following a Design Science Research methodology, the proposed artefact defines an autonomy model that distinguishes autonomous actions, approval-required actions, and prohibited actions. The study is grounded in a real-world context at VirtualCare, a Portuguese digital health company, where two to three representative processes are identified, mapped, and targeted for automation.
-
-The evaluation covers efficiency (target: $\geq$30\% time reduction over the manual baseline), output quality (target: $\geq$85\% correctness and completeness), error detection (target: $\geq$80\% of injected errors detected), and user acceptance (System Usability Scale $\geq$68, perceived utility $\geq$4/5). The study concludes with replicable guidelines for integrating LLM agents into sensitive organisational workflows with appropriate human oversight.
-
-\end{abstract}
-
-\begin{abstractotherlanguage}
 % Resumo alargado em português (~1000 palavras) — obrigatório para dissertações escritas em inglês.
 
 As organizações de saúde digital realizam frequentemente tarefas manuais e repetitivas no âmbito dos seus processos internos de investigação e desenvolvimento (I\&D), tais como a documentação de projetos, a organização de espaços de trabalho e a geração de secções recorrentes em relatórios. Estas tarefas consomem tempo significativo às equipas, limitando a capacidade de se concentrarem em trabalho de maior valor acrescentado.
@@ -55,6 +45,16 @@ O trabalho contribui com orientações práticas e replicáveis para a integraç
 
 % TODO: expandir para ~1000 palavras com detalhes da implementação e resultados (a preencher no 2.º semestre)
 
+\end{abstract}
+
+\begin{abstractotherlanguage}
+
+Organisations in digital health routinely perform time-consuming manual tasks as part of their research and development (R\&D) processes — including project documentation, workspace organisation, and the generation of recurring report sections. Large Language Model (LLM) agents equipped with tools and Retrieval-Augmented Generation (RAG) offer a promising approach for automating these workflows. However, the healthcare domain introduces critical constraints: model hallucinations, the risk of irreversible actions, strict traceability requirements, and privacy obligations under the GDPR and the EU AI Act.
+
+This dissertation proposes a framework for designing LLM-based agents that automate selected internal R\&D processes while preserving Human-in-the-Loop (HITL) supervision at critical decision points. Following a Design Science Research methodology, the proposed artefact defines an autonomy model that distinguishes autonomous actions, approval-required actions, and prohibited actions. The study is grounded in a real-world context at VirtualCare, a Portuguese digital health company, where two to three representative processes are identified, mapped, and targeted for automation.
+
+The evaluation covers efficiency (target: $\geq$30\% time reduction over the manual baseline), output quality (target: $\geq$85\% correctness and completeness), error detection (target: $\geq$80\% of injected errors detected), and user acceptance (System Usability Scale $\geq$68, perceived utility $\geq$4/5). The study concludes with replicable guidelines for integrating LLM agents into sensitive organisational workflows with appropriate human oversight.
+
 \end{abstractotherlanguage}
 
 %----------------------------------------------------------------------------------------
@@ -78,7 +78,7 @@ O trabalho contribui com orientações práticas e replicáveis para a integraç
 \listoftables % Prints the list of tables
 
 \iflanguage{portuguese}{
-\renewcommand{\listalgorithmname}{Lista de Algor\'itmos}
+\renewcommand{\listalgorithmname}{Lista de Algoritmos}
 }
 \listofalgorithms % Prints the list of algorithms
 \addchaptertocentry{\listalgorithmname}
