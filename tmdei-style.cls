@@ -356,7 +356,7 @@ KOMA-script documentation for details.}]{fancyhdr}
 	\end{center}
 	\vfill
 	{\large \bfseries \noindent \advisorlabel: \advname } \\
-	\ifdefined\cosupname {\large \bfseries \coadvisorlabel: \coadvname} \\ \fi
+	\ifdefined\coadvname {\large \bfseries \coadvisorlabel: \coadvname} \\ \fi
 	{\large \bfseries \noindent \supervisorlabel: \supname } \\
 	\ifdefined\cosupname {\large \bfseries \cosupervisorlabel: \cosupname} \\ \fi
 	\vfill
