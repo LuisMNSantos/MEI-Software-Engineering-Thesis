@@ -1,4 +1,394 @@
 % Capítulo 2
 \chapter{Fundamentos Teóricos}
 \label{chap:fundamentos}
-% TODO: fundamentos teóricos
+
+Este trabalho situa-se na interseção de três áreas: os modelos de linguagem de grande dimensão e os agentes construídos sobre eles, a interação humano-automação e a governação de sistemas de \gls{ai} em contextos regulados. Antes de rever a literatura (Capítulo~\ref{chap:estado_arte}) ou de descrever a solução proposta (Capítulo~\ref{chap:concecao}), é necessário fixar o vocabulário e os conceitos de base sobre os quais as decisões de conceção vão assentar.
+
+O capítulo segue uma progressão deliberada. Começa pelos \glspl{llm} enquanto tecnologia de base (Secção~\ref{sec:fundamentos_llm}) e pela forma como são transformados em agentes capazes de usar ferramentas (Secção~\ref{sec:fundamentos_agentes}) e de consultar conhecimento externo (Secção~\ref{sec:fundamentos_rag}). Passa depois ao problema central desta dissertação, o de decidir quanta autonomia conceder a esses agentes e como manter o humano no controlo (Secção~\ref{sec:fundamentos_autonomia}), e aos riscos que tornam essa decisão necessária (Secção~\ref{sec:fundamentos_riscos}). As secções seguintes tratam dos mecanismos que tornam a supervisão verificável, isto é, a rastreabilidade (Secção~\ref{sec:fundamentos_rastreabilidade}) e a avaliação (Secção~\ref{sec:fundamentos_avaliacao}), e do enquadramento regulatório europeu (Secção~\ref{sec:fundamentos_regulacao}). O capítulo termina com uma síntese que traduz estes conceitos em implicações para a solução (Secção~\ref{sec:fundamentos_sintese}).
+
+%----------------------------------------------------------------------------------------
+\section{Modelos de Linguagem de Grande Dimensão}
+\label{sec:fundamentos_llm}
+%----------------------------------------------------------------------------------------
+
+Um modelo de linguagem é um modelo probabilístico que atribui uma probabilidade a sequências de \textit{tokens} (unidades de texto, tipicamente palavras ou fragmentos de palavras). Os modelos atuais são \textit{autorregressivos}: decompõem a probabilidade de uma sequência $x = (x_1, \dots, x_T)$ no produto das probabilidades de cada \textit{token} condicionado aos anteriores,
+\begin{equation}
+  P_\theta(x) = \prod_{t=1}^{T} P_\theta(x_t \mid x_{<t}),
+  \label{eq:lm_autoregressivo}
+\end{equation}
+em que $\theta$ representa os parâmetros do modelo. Gerar texto consiste em amostrar repetidamente o \textit{token} seguinte a partir desta distribuição e acrescentá-lo à sequência \parencite{zhao2023survey}.
+
+\subsection*{Arquitetura \textit{Transformer}}
+
+A arquitetura que viabilizou os \glspl{llm} é o \textit{Transformer} \parencite{vaswani2017attention}. O seu elemento central é o mecanismo de \textit{autoatenção} (\textit{self-attention}), que permite a cada posição da sequência ponderar a relevância de todas as outras. Cada \textit{token} é projetado em três vetores, consulta ($Q$), chave ($K$) e valor ($V$), e a atenção é calculada como
+\begin{equation}
+  \mathrm{Attention}(Q, K, V) = \mathrm{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right) V,
+  \label{eq:atencao}
+\end{equation}
+em que $d_k$ é a dimensão das chaves. Ao contrário das redes recorrentes, esta operação é paralelizável ao longo da sequência, o que tornou possível treinar modelos com milhares de milhões de parâmetros sobre corpora de dimensão muito elevada.
+
+\subsection*{Pré-treino, ajuste por instruções e alinhamento}
+
+O desenvolvimento de um \gls{llm} decorre tipicamente em fases. No \textit{pré-treino}, o modelo aprende a prever o \textit{token} seguinte (Equação~\ref{eq:lm_autoregressivo}) sobre grandes volumes de texto não anotado, adquirindo conhecimento linguístico e factual de forma implícita nos seus parâmetros. \textcite{brown2020language} mostraram que, a partir de certa escala, estes modelos conseguem executar tarefas novas apenas a partir de instruções e de alguns exemplos incluídos no próprio \textit{prompt} (\textit{in-context learning}), sem atualização de parâmetros. Por serem treinados de forma genérica e depois adaptados a múltiplas tarefas, estes modelos são também designados por \textit{modelos de fundação} \parencite{bommasani2021opportunities}.
+
+Um modelo apenas pré-treinado continua texto, mas não segue instruções de forma fiável. O \textit{ajuste por instruções} e a aprendizagem por reforço a partir de feedback humano (\gls{rlhf}) resolvem este problema: o modelo é afinado com exemplos de instruções e respostas desejadas e, depois, otimizado contra um modelo de recompensa treinado com preferências humanas \parencite{ouyang2022training}. É esta fase que produz os assistentes conversacionais atualmente disponíveis. Técnicas de \textit{prompting} como a cadeia de raciocínio (\gls{cot}), em que o modelo é induzido a explicitar passos intermédios antes da resposta final, melhoram o desempenho em tarefas que exigem raciocínio em vários passos \parencite{wei2022chain}.
+
+\subsection*{Limitações relevantes para este trabalho}
+
+Quatro limitações dos \glspl{llm} condicionam diretamente a conceção de sistemas que os utilizem para automatizar processos:
+\begin{itemize}
+  \item \textbf{Conhecimento paramétrico estático.} O conhecimento do modelo fica fixado na data de recolha dos dados de treino e não inclui informação interna de uma organização, como os seus projetos, modelos de documentos ou procedimentos. Este é o principal argumento para a recuperação de informação externa (Secção~\ref{sec:fundamentos_rag}).
+  \item \textbf{Janela de contexto finita.} O modelo só considera um número limitado de \textit{tokens} por pedido. Mesmo quando a janela é grande, a informação colocada no meio de contextos longos é usada de forma menos fiável do que a colocada no início ou no fim \parencite{liu2024lost}, pelo que não basta incluir \enquote{todos os documentos} no \textit{prompt}.
+  \item \textbf{Não determinismo.} A geração por amostragem faz com que o mesmo pedido possa produzir respostas diferentes. Isto dificulta a reprodutibilidade e reforça a necessidade de registar o que foi efetivamente gerado (Secção~\ref{sec:fundamentos_rastreabilidade}).
+  \item \textbf{Alucinação.} O modelo pode produzir conteúdo fluente mas factualmente incorreto ou não suportado pelas fontes. Este risco é tratado em detalhe na Secção~\ref{sec:fundamentos_riscos}.
+\end{itemize}
+
+No domínio da saúde, estas limitações têm um peso particular. \textcite{singhal2023large} mostraram que os \glspl{llm} codificam conhecimento clínico relevante, mas também que as suas respostas ficam aquém das de profissionais em dimensões como a completude e o potencial de dano, e \textcite{thirunavukarasu2023large} sublinham a necessidade de supervisão humana e de validação antes de qualquer utilização com impacto. Embora este trabalho incida sobre processos internos de \gls{id} e não sobre decisões clínicas, a organização em causa opera num setor onde a exatidão e a rastreabilidade da documentação são exigências de base.
+
+%----------------------------------------------------------------------------------------
+\section{Agentes Baseados em LLM e Uso de Ferramentas}
+\label{sec:fundamentos_agentes}
+%----------------------------------------------------------------------------------------
+
+\subsection*{O conceito de agente}
+
+Em \gls{ai}, um agente é uma entidade que perceciona o seu ambiente e atua sobre ele \parencite{russell2021artificial}. \textcite{wooldridge1995intelligent} caracterizam os agentes inteligentes por quatro propriedades: \textit{autonomia} (operam sem intervenção direta a cada passo), \textit{reatividade} (respondem a alterações do ambiente), \textit{proatividade} (tomam a iniciativa para atingir objetivos) e \textit{capacidade social} (interagem com outros agentes ou com humanos). A primeira destas propriedades é precisamente a que esta dissertação procura graduar: não se trata de saber se o agente é autónomo, mas em que ações e em que medida o deve ser.
+
+\subsection*{Arquitetura de um agente baseado em LLM}
+
+Um agente baseado em \gls{llm} usa o modelo de linguagem como componente de decisão, ao qual se acrescentam capacidades que o modelo isolado não tem. Na revisão de \textcite{wang2024survey}, estas capacidades organizam-se em quatro módulos: \textit{perfil} (o papel e as instruções que definem o comportamento do agente), \textit{memória} (informação mantida entre passos ou entre sessões), \textit{planeamento} (decomposição de um objetivo em subtarefas) e \textit{ação} (a interface através da qual o agente produz efeitos no ambiente). \textcite{sumers2024cognitive} propõem uma estrutura semelhante, distinguindo memória de trabalho (o contexto atual), memória episódica (experiências anteriores), memória semântica (conhecimento sobre o mundo ou o domínio) e memória procedimental (o próprio código e \textit{prompts} do agente). Revisões mais amplas descrevem a mesma decomposição em termos de cérebro, perceção e ação \parencite{xi2023rise}.
+
+\subsection*{Raciocinar e agir: o ciclo ReAct}
+
+O padrão mais difundido para agentes baseados em \gls{llm} é o ReAct \parencite{yao2023react}, que intercala raciocínio e ação num ciclo. Em cada iteração, o modelo produz um \textit{pensamento} (raciocínio em linguagem natural sobre o estado da tarefa), escolhe uma \textit{ação} (tipicamente a invocação de uma ferramenta com determinados argumentos) e recebe uma \textit{observação} (o resultado dessa ação), que é acrescentada ao contexto antes da iteração seguinte. O ciclo termina quando o modelo considera o objetivo atingido. \textcite{yao2023react} mostraram que esta combinação reduz a propagação de erros face ao raciocínio isolado, porque as observações permitem corrigir hipóteses incorretas. Extensões como o Reflexion acrescentam um passo de autoavaliação em linguagem natural, que o agente usa para melhorar tentativas seguintes \parencite{shinn2023reflexion}.
+
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}[
+      node distance=8mm and 20mm,
+      box/.style={draw, rounded corners, align=center, minimum height=10mm, text width=30mm, font=\small},
+      ctl/.style={draw, rounded corners, dashed, align=center, minimum height=10mm, text width=34mm, font=\small},
+      arr/.style={-{Stealth[length=2.5mm]}, thick}
+    ]
+    \node[box] (obj) {Objetivo\\(pedido do utilizador)};
+    \node[box, right=of obj] (llm) {\gls{llm}\\pensamento $\rightarrow$ ação};
+    \node[ctl, below=of llm] (run) {Ambiente de execução\\(validação, política de autonomia, registo)};
+    \node[box, right=of run] (tool) {Ferramentas\\(APIs, ficheiros, pesquisa)};
+    \node[box, left=of run] (human) {Humano\\(aprovar / rejeitar)};
+
+    \draw[arr] (obj) -- (llm);
+    \draw[arr] (llm) -- node[right, font=\footnotesize]{pedido de ação} (run);
+    \draw[arr] (run) -- node[above, font=\footnotesize]{executa} (tool);
+    \draw[arr] (tool.north) |- node[pos=0.25, right, font=\footnotesize]{observação} (llm.east);
+    \draw[arr, dashed] (run.west) -- node[above, yshift=1mm, font=\footnotesize]{se exigido} (human.east);
+    \draw[arr, dashed] (human.south) -- ++(0,-6mm) -| node[pos=0.25, below, font=\footnotesize]{decisão} (run.south);
+  \end{tikzpicture}
+  \caption[Ciclo de um agente baseado em LLM com ponto de controlo]{Ciclo de um agente baseado em \gls{llm} (adaptado de \textcite{yao2023react}). O modelo apenas \emph{propõe} ações; é o ambiente de execução que as valida, as encaminha para aprovação humana quando necessário e as regista.}
+  \label{fig:ciclo_agente}
+\end{figure}
+
+\subsection*{Uso de ferramentas}
+
+Um modelo de linguagem, por si só, apenas produz texto. O que lhe permite atuar sobre sistemas externos é o \textit{uso de ferramentas}: o modelo gera um pedido estruturado (por exemplo, um objeto JSON com o nome de uma função e os respetivos argumentos), que é executado por código externo, sendo o resultado devolvido ao modelo como nova entrada. \textcite{schick2023toolformer} mostraram que os modelos podem aprender a decidir quando e como invocar ferramentas como calculadoras, motores de pesquisa ou sistemas de tradução, e \textcite{mialon2023augmented} enquadram esta capacidade, juntamente com o raciocínio e a recuperação de informação, na família mais vasta dos \textit{modelos de linguagem aumentados}.
+
+Do ponto de vista desta dissertação, o aspeto mais importante do uso de ferramentas é arquitetural: \emph{o modelo não executa ações diretamente}. Toda a ação passa por um ambiente de execução controlado pelo programador, que pode validar os argumentos, recusar a ação, pedir confirmação a um humano ou registá-la antes de a executar (Figura~\ref{fig:ciclo_agente}). Este ponto de intermediação é o local natural para implementar a supervisão humana e a rastreabilidade discutidas nas secções seguintes. A normalização da forma como as aplicações expõem ferramentas e fontes de dados aos modelos, de que o \gls{mcp} é um exemplo recente \parencite{anthropic2024mcp}, torna este ponto de controlo ainda mais explícito, porque as capacidades disponíveis para o agente passam a ser declaradas de forma uniforme.
+
+\subsection*{Fluxos de trabalho e agentes}
+
+Nem todos os sistemas que combinam \glspl{llm} e ferramentas são agentes no sentido pleno. É útil distinguir entre \textit{fluxos de trabalho} (\textit{workflows}), em que o \gls{llm} e as ferramentas são orquestrados por caminhos de código predefinidos, e \textit{agentes}, em que é o próprio \gls{llm} que decide dinamicamente os passos a dar e as ferramentas a usar \parencite{anthropic2024agents}. Entre os dois extremos existe um espetro de configurações, resumido na Tabela~\ref{tab:espetro_configuracoes}, que troca previsibilidade por flexibilidade. Esta distinção estrutura a comparação experimental prevista nesta dissertação (Capítulo~\ref{chap:avaliacao}), que contrapõe um fluxo fixo com \textit{prompts} a um agente com ferramentas e recuperação de informação, com diferentes níveis de autonomia.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Espetro de configurações de sistemas baseados em LLM}
+  \label{tab:espetro_configuracoes}
+  \small
+  \begin{tabularx}{\textwidth}{@{}p{3.2cm}XXX@{}}
+    \toprule
+    \textbf{Configuração} & \textbf{Quem decide o passo seguinte} & \textbf{Vantagens} & \textbf{Riscos} \\
+    \midrule
+    Chamada única ao \gls{llm} & Ninguém: um pedido, uma resposta & Simples, barato, fácil de avaliar & Sem acesso a dados internos; sem ação \\
+    Fluxo fixo com \textit{prompts} & O programador, em código & Previsível, testável, auditável & Rígido perante casos não previstos \\
+    Agente com ferramentas e \gls{rag} & O \gls{llm}, em tempo de execução & Flexível, lida com tarefas abertas & Menos previsível; erros compõem-se ao longo dos passos \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+%----------------------------------------------------------------------------------------
+\section{Geração Aumentada por Recuperação}
+\label{sec:fundamentos_rag}
+%----------------------------------------------------------------------------------------
+
+A geração aumentada por recuperação (\gls{rag}) responde à limitação do conhecimento paramétrico estático. Em vez de depender apenas do que o modelo memorizou, o sistema recupera, no momento do pedido, excertos relevantes de uma base de conhecimento externa e inclui-os no contexto do modelo. \textcite{lewis2020retrieval} formalizaram esta abordagem combinando uma \textit{memória paramétrica} (o modelo gerador) com uma \textit{memória não paramétrica} (um índice vetorial de documentos). Na sua formulação, a probabilidade de uma resposta $y$ dado um pedido $x$ é obtida marginalizando sobre os $k$ documentos $z$ mais relevantes devolvidos por um recuperador $p_\eta$:
+\begin{equation}
+  P(y \mid x) \approx \sum_{z \in \text{top-}k\left(p_\eta(\cdot \mid x)\right)} p_\eta(z \mid x)\; p_\theta(y \mid x, z).
+  \label{eq:rag}
+\end{equation}
+Na prática atual, com \glspl{llm} acedidos por \gls{api}, a marginalização é normalmente substituída pela simples concatenação dos excertos recuperados no \textit{prompt}, mas a ideia mantém-se: a resposta é condicionada por evidência explícita e identificável.
+
+\subsection*{O \textit{pipeline} de RAG}
+
+Um sistema \gls{rag} organiza-se em três fases (Figura~\ref{fig:pipeline_rag}):
+\begin{enumerate}
+  \item \textbf{Indexação.} Os documentos são segmentados em excertos (\textit{chunks}) e cada excerto é convertido num vetor denso (\textit{embedding}) por um modelo de codificação de frases \parencite{reimers2019sentence}. Os vetores são guardados num índice, juntamente com metadados como a origem, a data ou as permissões de acesso.
+  \item \textbf{Recuperação.} O pedido é codificado no mesmo espaço vetorial e são devolvidos os excertos mais próximos, geralmente segundo a similaridade de cosseno,
+  \begin{equation}
+    \mathrm{sim}(\mathbf{q}, \mathbf{d}) = \frac{\mathbf{q} \cdot \mathbf{d}}{\lVert \mathbf{q} \rVert \, \lVert \mathbf{d} \rVert}.
+    \label{eq:cosseno}
+  \end{equation}
+  A recuperação densa \parencite{karpukhin2020dense} capta semelhança de significado, mas pode falhar em termos exatos, como códigos de projeto ou nomes próprios, onde métodos esparsos baseados em termos, como o BM25 \parencite{robertson2009probabilistic}, são mais fortes. Por isso é comum combinar os dois (\textit{recuperação híbrida}) e reordenar os resultados com um modelo mais preciso.
+  \item \textbf{Geração.} Os excertos recuperados são inseridos no \textit{prompt}, com instruções para que o modelo responda com base neles e, idealmente, indique as fontes usadas.
+\end{enumerate}
+
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}[
+      node distance=6mm and 11mm,
+      box/.style={draw, rounded corners, align=center, minimum height=9mm, text width=24mm, font=\small},
+      store/.style={draw, cylinder, shape border rotate=90, aspect=0.2, align=center, minimum height=12mm, text width=20mm, font=\small},
+      arr/.style={-{Stealth[length=2.5mm]}, thick},
+      lbl/.style={font=\footnotesize\itshape}
+    ]
+    % Indexação
+    \node[box] (docs) {Documentos internos};
+    \node[box, right=of docs] (chunk) {Segmentação em excertos};
+    \node[box, right=of chunk] (emb) {Codificação (\textit{embeddings})};
+    \node[store, right=of emb] (idx) {Índice vetorial + metadados};
+    % Consulta
+    \node[box, below=16mm of docs] (q) {Pedido};
+    \node[box, right=of q] (qemb) {Codificação do pedido};
+    \node[box, right=of qemb] (ret) {Recuperação top-$k$ (+ reordenação)};
+    \node[box, right=of ret] (gen) {\gls{llm}: resposta com fontes};
+
+    \draw[arr] (docs) -- (chunk);
+    \draw[arr] (chunk) -- (emb);
+    \draw[arr] (emb) -- (idx);
+    \draw[arr] (q) -- (qemb);
+    \draw[arr] (qemb) -- (ret);
+    \draw[arr] (idx.south) |- ([yshift=4mm]ret.north) -- (ret.north);
+    \draw[arr] (ret) -- (gen);
+    \draw[arr] (q.south) -- ++(0,-5mm) -| (gen.south);
+
+    \node[lbl, above=1mm of chunk] {Indexação (offline)};
+    \node[lbl, above=1mm of qemb] {Consulta (em tempo de execução)};
+  \end{tikzpicture}
+  \caption[Pipeline de geração aumentada por recuperação]{\textit{Pipeline} de geração aumentada por recuperação (adaptado de \textcite{gao2023retrieval}).}
+  \label{fig:pipeline_rag}
+\end{figure}
+
+\subsection*{Paradigmas e limitações}
+
+\textcite{gao2023retrieval} distinguem três paradigmas. O \textit{RAG ingénuo} segue literalmente as três fases acima. O \textit{RAG avançado} acrescenta otimizações antes da recuperação (por exemplo, reformular o pedido) e depois dela (reordenar ou comprimir os excertos). O \textit{RAG modular} trata a recuperação como um componente entre outros, que pode ser invocado várias vezes ou de forma condicional. Neste último caso, a recuperação torna-se uma ferramenta que o próprio agente decide quando usar, aproximando o \gls{rag} dos agentes descritos na Secção~\ref{sec:fundamentos_agentes}.
+
+Para os objetivos deste trabalho, o \gls{rag} traz duas vantagens: permite que o agente trabalhe sobre o conhecimento interno da organização sem retreinar o modelo, e torna possível \emph{atribuir} cada afirmação gerada a um excerto de origem, o que suporta a verificação humana e a rastreabilidade. Tem, contudo, limitações que importa reconhecer. Se a recuperação falhar, o modelo gera a partir de contexto irrelevante ou incompleto; excertos com ruído podem degradar a resposta; o índice pode ficar desatualizado face aos documentos de origem; e o \gls{rag} reduz, mas não elimina, as alucinações \parencite{gao2023retrieval}. Acresce que o índice herda a sensibilidade dos documentos que contém, pelo que as permissões de acesso aos documentos têm de ser respeitadas também na recuperação.
+
+%----------------------------------------------------------------------------------------
+\section{Autonomia e Supervisão Humana}
+\label{sec:fundamentos_autonomia}
+%----------------------------------------------------------------------------------------
+
+A questão de quanta autonomia conceder a um sistema automático é anterior aos \glspl{llm} e foi estudada extensivamente na engenharia de fatores humanos, em domínios como a aviação, o controlo de processos industriais e a medicina. Esta secção recupera esse corpo de conhecimento, porque fornece critérios testados para uma decisão que, nos agentes baseados em \gls{llm}, é muitas vezes tomada de forma implícita.
+
+\subsection*{Níveis e tipos de automação}
+
+\textcite{sheridan1978human} propuseram uma escala de dez níveis de automação, que vai desde o computador não oferecer qualquer assistência até decidir e agir sozinho, ignorando o humano (Tabela~\ref{tab:niveis_automacao}). O contributo essencial da escala é mostrar que a automação não é binária: entre \enquote{manual} e \enquote{automático} existem níveis intermédios, que diferem sobretudo em \emph{quem tem a última palavra antes da execução} e \emph{se o humano é informado depois dela}.
+
+\begin{table}[htbp]
+  \centering
+  \caption[Níveis de automação de Sheridan e Verplank]{Níveis de automação \parencite[adaptado de][]{sheridan1978human,parasuraman2000model}}
+  \label{tab:niveis_automacao}
+  \small
+  \begin{tabularx}{\textwidth}{@{}cX@{}}
+    \toprule
+    \textbf{Nível} & \textbf{O computador\dots} \\
+    \midrule
+    10 & decide tudo e age autonomamente, ignorando o humano \\
+    9  & informa o humano apenas se decidir fazê-lo \\
+    8  & informa o humano apenas se este o pedir \\
+    7  & executa automaticamente e depois informa necessariamente o humano \\
+    6  & concede ao humano um tempo limitado para vetar antes da execução automática \\
+    5  & executa a sugestão se o humano a aprovar \\
+    4  & sugere uma alternativa \\
+    3  & reduz as alternativas a algumas opções \\
+    2  & oferece um conjunto completo de alternativas de decisão e ação \\
+    1  & não oferece assistência; o humano toma todas as decisões e executa todas as ações \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\textcite{parasuraman2000model} refinaram este modelo observando que um sistema não tem um único nível de automação. Propuseram quatro \emph{tipos} de função, correspondentes às etapas do processamento de informação humano: (1)~aquisição de informação, (2)~análise de informação, (3)~seleção de decisão e ação e (4)~implementação da ação. Cada uma pode ser automatizada num nível diferente. Um agente que redige um relatório pode, por exemplo, recolher e analisar informação com autonomia elevada, mas apenas sugerir (e não executar) a publicação do documento. Os autores propõem ainda critérios para escolher o nível adequado: critérios primários, relativos às consequências para o desempenho humano (carga de trabalho, consciência situacional, complacência e perda de competências), e critérios secundários, como a fiabilidade da automação e o custo das consequências de decisões e ações erradas. Este último critério é o fundamento do modelo de autonomia proposto nesta dissertação: quanto maior e menos reversível o impacto de uma ação, menor deve ser o nível de automação da sua implementação.
+
+\subsection*{Humano no circuito, sobre o circuito e no comando}
+
+As Orientações Éticas para uma \gls{ai} de Confiança \parencite{hleg2019ethics} distinguem três formas de supervisão humana. Na abordagem \textit{humano no circuito} (\gls{hitl}), o humano pode intervir em cada ciclo de decisão do sistema. Na abordagem \textit{humano sobre o circuito} (\gls{hotl}), intervém na conceção do sistema e monitoriza o seu funcionamento, podendo interromper, mas sem validar cada decisão. Na abordagem \textit{humano no comando} (\gls{hic}), supervisiona a atividade global do sistema e decide quando e como utilizá-lo.
+
+O termo \gls{hitl} é também usado na aprendizagem automática para designar a participação humana no \emph{treino} de modelos, por exemplo através de anotação ou aprendizagem ativa \parencite{mosqueira2023human}. Nesta dissertação, o termo é usado no sentido operacional: a intervenção humana \emph{em tempo de execução}, para validar ações propostas pelo agente antes de estas produzirem efeitos. Em termos da Tabela~\ref{tab:niveis_automacao}, corresponde sobretudo ao nível~5, ao passo que a supervisão \gls{hotl} se aproxima dos níveis~6 e~7.
+
+\textcite{shneiderman2020human} contesta a ideia de que mais automação implica necessariamente menos controlo humano. No seu enquadramento de \gls{ai} centrada no humano, controlo humano e automação são dois eixos independentes, e os sistemas desejáveis combinam níveis elevados de ambos: automatizam o trabalho rotineiro, mas mantêm o humano informado e com capacidade efetiva de intervir. As diretrizes de interação humano-\gls{ai} de \textcite{amershi2019guidelines} operacionalizam esta visão em recomendações concretas, como deixar claro o que o sistema consegue fazer e com que fiabilidade, explicar porque fez o que fez, e permitir corrigir ou rejeitar as suas sugestões de forma eficiente.
+
+\subsection*{Confiança, complacência e as ironias da automação}
+
+Introduzir pontos de aprovação humana não garante, por si só, uma supervisão eficaz. \textcite{parasuraman1997humans} identificam quatro formas de relação com a automação: uso, \textit{mau uso} (dependência excessiva, aceitando resultados errados), \textit{desuso} (rejeição de automação fiável por falta de confiança) e \textit{abuso} (automatizar sem considerar as consequências para quem a opera). \textcite{lee2004trust} argumentam que o objetivo não é maximizar a confiança, mas \emph{calibrá-la}, de modo a que corresponda à fiabilidade real do sistema.
+
+O fenómeno mais relevante para sistemas \gls{hitl} é o \textit{viés de automação}: a tendência para aceitar as recomendações de um sistema automático sem as verificar adequadamente, mesmo perante sinais contrários \parencite{parasuraman2010complacency}. Uma revisão sistemática em sistemas de apoio à decisão em saúde concluiu que o viés de automação é frequente e que fatores como a carga de trabalho, a complexidade da tarefa e a forma como a informação é apresentada influenciam a sua ocorrência \parencite{goddard2012automation}. \textcite{bainbridge1983ironies} já tinha descrito o paradoxo subjacente: quanto mais fiável é a automação, menos o operador pratica e mais difícil lhe é detetar e corrigir as falhas raras, que são precisamente aquelas em que a sua intervenção é necessária.
+
+A implicação prática é que pedidos de aprovação frequentes, pouco informativos ou de baixo risco tendem a ser aprovados de forma mecânica, o que esvazia a supervisão. Um modelo de autonomia eficaz deve, portanto, reservar a aprovação humana para as ações em que ela acrescenta valor e apresentar, em cada pedido, a informação necessária para uma decisão consciente: o que será feito, com que fundamento e com que consequências.
+
+\subsection*{Classificação de ações por nível de autonomia}
+
+Os conceitos anteriores permitem formular o modelo de autonomia usado nesta dissertação. As ações que um agente pode executar são classificadas em três categorias, em função do seu impacto e reversibilidade (Tabela~\ref{tab:classes_acoes}). A concretização desta classificação para os processos da organização é feita no Capítulo~\ref{chap:concecao}.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Categorias de ações do modelo de autonomia}
+  \label{tab:classes_acoes}
+  \small
+  \begin{tabularx}{\textwidth}{@{}p{2.6cm}Xp{2.4cm}X@{}}
+    \toprule
+    \textbf{Categoria} & \textbf{Critério} & \textbf{Nível (Tab.~\ref{tab:niveis_automacao})} & \textbf{Exemplos ilustrativos} \\
+    \midrule
+    Autónoma & Sem efeitos externos ou facilmente reversível & 7 & Ler documentos, pesquisar no índice, gerar um rascunho \\
+    Com aprovação & Efeitos externos, visíveis a terceiros ou difíceis de reverter & 5 & Publicar um documento, alterar a estrutura de um espaço de projeto \\
+    Proibida & Impacto irreversível ou fora do âmbito do agente & Nenhum (fora do espaço de ação) & Apagar conteúdos, enviar comunicações externas, aceder a dados de saúde identificáveis \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+As ações proibidas não são apenas desaconselhadas nas instruções do agente, o que seria insuficiente face aos riscos descritos na secção seguinte; são excluídas do conjunto de ferramentas que o ambiente de execução lhe disponibiliza.
+
+%----------------------------------------------------------------------------------------
+\section{Riscos dos Agentes Baseados em LLM}
+\label{sec:fundamentos_riscos}
+%----------------------------------------------------------------------------------------
+
+\subsection*{Alucinações}
+
+Designa-se por \textit{alucinação} a geração de conteúdo que não tem fundamento nos dados de entrada ou que é factualmente incorreto, apresentado com a mesma fluência que o conteúdo correto. \textcite{ji2023survey} distinguem alucinações \textit{intrínsecas}, em que o texto gerado contradiz a fonte, de alucinações \textit{extrínsecas}, em que o texto não pode ser verificado a partir da fonte. Para os \glspl{llm}, \textcite{huang2025survey} propõem uma distinção complementar entre alucinações de \textit{factualidade} (contradição com factos do mundo) e de \textit{fidelidade} (desvio face às instruções ou ao contexto fornecido). Num sistema com \gls{rag}, as segundas são particularmente relevantes: o modelo pode receber o excerto correto e, ainda assim, resumi-lo ou citá-lo de forma errada.
+
+Nos agentes, o problema agrava-se de duas formas. Em primeiro lugar, os erros compõem-se: um erro num passo inicial (por exemplo, um argumento errado numa chamada a uma ferramenta) é propagado para os passos seguintes. Em segundo lugar, a alucinação deixa de produzir apenas texto errado e passa a poder produzir \emph{ações} erradas. As estratégias de mitigação incluem a fundamentação em fontes recuperadas (Secção~\ref{sec:fundamentos_rag}), a verificação de consistência entre várias amostras geradas para o mesmo pedido \parencite{manakul2023selfcheckgpt}, a validação estrutural das saídas (por exemplo, contra um esquema) e, em última instância, a revisão humana. Nenhuma delas é completa isoladamente, o que justifica a sua combinação em camadas.
+
+\subsection*{Injeção de instruções}
+
+Os \glspl{llm} não distinguem de forma robusta entre instruções e dados: todo o texto presente no contexto pode influenciar o comportamento do modelo. A \textit{injeção de instruções} explora esta característica. Na forma direta, o utilizador tenta contornar as instruções do sistema. Na forma \textit{indireta}, descrita por \textcite{greshake2023not}, as instruções maliciosas estão escondidas em conteúdo que o sistema recupera, como uma página \textit{web}, um documento ou uma mensagem, e são executadas quando esse conteúdo entra no contexto. Para um agente que lê documentos e tem acesso a ferramentas, isto significa que um documento comprometido pode levá-lo a executar ações não pretendidas. A injeção de instruções ocupa o primeiro lugar da lista de riscos para aplicações baseadas em \gls{llm} da OWASP \parencite{owasp2025top10}.
+
+\subsection*{Agência excessiva}
+
+A mesma lista identifica a \textit{agência excessiva} como um risco específico de sistemas que dão ao modelo capacidade de agir, decompondo-o em três causas: funcionalidade excessiva (ferramentas com mais capacidades do que as necessárias), permissões excessivas (credenciais com acesso mais amplo do que o necessário) e autonomia excessiva (ações de alto impacto executadas sem verificação) \parencite{owasp2025top10}. As mitigações recomendadas correspondem diretamente aos conceitos da Secção~\ref{sec:fundamentos_autonomia}: aplicar o princípio do menor privilégio às ferramentas e credenciais, exigir aprovação humana para ações de alto impacto e preferir operações reversíveis. Do ponto de vista da conceção, a supervisão humana não é, portanto, apenas uma questão de aceitação pelos utilizadores, mas também um controlo de segurança.
+
+\subsection*{Divulgação de informação sensível}
+
+Por fim, um agente com acesso a documentos internos pode expor informação a quem não deveria ter acesso a ela, seja através das respostas que gera, seja através dos dados que envia ao fornecedor do modelo. Este risco é tratado do ponto de vista regulatório na Secção~\ref{sec:fundamentos_regulacao}.
+
+%----------------------------------------------------------------------------------------
+\section{Rastreabilidade e Auditabilidade}
+\label{sec:fundamentos_rastreabilidade}
+%----------------------------------------------------------------------------------------
+
+A supervisão humana em tempo de execução é complementada pela capacidade de reconstruir, \emph{a posteriori}, o que o sistema fez e porquê. Importa distinguir três conceitos relacionados. A \textit{rastreabilidade} é a capacidade de reconstruir a cadeia de eventos que conduziu a um resultado: que pedido foi feito, que informação foi consultada, que ações foram propostas, aprovadas e executadas. A \textit{auditabilidade} é a possibilidade de essa reconstrução ser verificada por uma parte independente. A \textit{responsabilização} (\textit{accountability}) é a atribuição de cada decisão a um ator identificável, humano ou sistema. \textcite{raji2020closing} argumentam que a responsabilização em sistemas de \gls{ai} exige processos e artefactos documentais ao longo de todo o ciclo de vida, e não apenas uma avaliação final.
+
+O instrumento técnico de base para a rastreabilidade é o registo de eventos (\textit{log}). As boas práticas de gestão de registos incluem a sincronização temporal dos eventos, a proteção dos registos contra alteração e eliminação não autorizadas e a definição de políticas de retenção \parencite{kent2006guide}. No caso de agentes baseados em \gls{llm}, o registo assume um papel ainda mais central por causa do não determinismo (Secção~\ref{sec:fundamentos_llm}): como o mesmo pedido pode produzir resultados diferentes, o registo do que foi efetivamente gerado é a única forma fiável de reconstruir um episódio.
+
+Para que um registo suporte a auditoria de um agente, deve captar, para cada execução, pelo menos:
+\begin{itemize}
+  \item o pedido original e a identidade de quem o fez;
+  \item o modelo e a versão usados, bem como as instruções de sistema em vigor;
+  \item os excertos recuperados e a sua origem, permitindo verificar a fundamentação das respostas;
+  \item cada ação proposta, com os respetivos argumentos e a categoria de autonomia aplicada;
+  \item cada decisão humana (aprovação, rejeição ou edição), com a identidade de quem decidiu e o instante;
+  \item o resultado de cada ação executada e o resultado final entregue.
+\end{itemize}
+
+Este conjunto de informação serve simultaneamente três fins: a auditoria (verificar o que aconteceu), a avaliação (calcular métricas como a taxa de aprovação ou de correção, Secção~\ref{sec:fundamentos_avaliacao}) e a melhoria contínua do sistema (identificar padrões de erro).
+
+%----------------------------------------------------------------------------------------
+\section{Avaliação de Agentes e de Sistemas com Supervisão Humana}
+\label{sec:fundamentos_avaliacao}
+%----------------------------------------------------------------------------------------
+
+Avaliar um agente com supervisão humana exige olhar para o sistema sociotécnico completo, e não apenas para o modelo. Esta dissertação considera três dimensões: eficiência, qualidade e aceitação.
+
+\subsection*{Eficiência}
+
+A eficiência mede-se, tipicamente, pelo tempo necessário para concluir uma tarefa, comparado com uma linha de base (neste caso, o processo manual). Num sistema \gls{hitl}, o tempo relevante não é apenas o de execução do agente, mas o tempo total até a um resultado aceite, \emph{incluindo} o tempo que o humano gasta a rever, aprovar e corrigir. Um agente que produz rascunhos rapidamente, mas que exige revisões extensas, pode não trazer ganhos reais.
+
+\subsection*{Qualidade}
+
+A qualidade dos resultados pode ser avaliada por especialistas com base em critérios explícitos, como a correção e a completude face a um resultado de referência. Como a avaliação humana é dispendiosa, tem-se generalizado o uso de \glspl{llm} como avaliadores (\textit{LLM-as-a-judge}). \textcite{zheng2023judging} mostraram que modelos fortes atingem níveis de concordância com avaliadores humanos comparáveis aos observados entre humanos, mas também identificaram enviesamentos, como a preferência pela primeira resposta apresentada, por respostas mais longas e pelas suas próprias respostas. Para sistemas com \gls{rag}, existem métricas específicas que avaliam separadamente a recuperação e a geração, como a fidelidade da resposta ao contexto recuperado, a relevância da resposta face ao pedido e a relevância do contexto recuperado \parencite{es2024ragas}.
+
+\textit{Benchmarks} genéricos para agentes, como o AgentBench \parencite{liu2024agentbench}, permitem comparar modelos em ambientes padronizados, mas não refletem os processos, documentos e critérios de qualidade de uma organização concreta. Em contexto organizacional, é por isso necessário construir conjuntos de tarefas representativos dos processos reais.
+
+A eficácia da supervisão humana é uma dimensão própria da qualidade. Uma forma de a medir é a \textit{injeção controlada de erros}: introduzem-se deliberadamente erros conhecidos nas saídas do agente e mede-se a proporção que é detetada pelos mecanismos de validação e pelos revisores,
+\begin{equation}
+  \text{taxa de deteção} = \frac{\text{n.º de erros injetados detetados}}{\text{n.º de erros injetados}}.
+  \label{eq:taxa_detecao}
+\end{equation}
+Esta métrica permite avaliar diretamente o risco de viés de automação discutido na Secção~\ref{sec:fundamentos_autonomia}.
+
+\subsection*{Aceitação}
+
+A aceitação pelos utilizadores é condição para a adoção. A \textit{System Usability Scale} (\gls{sus}) \parencite{brooke1996sus} é um questionário de dez itens, avaliados numa escala de Likert de cinco pontos, que alterna afirmações positivas (itens ímpares) e negativas (itens pares). Sendo $s_i \in \{1, \dots, 5\}$ a resposta ao item $i$, a pontuação, entre 0 e 100, é dada por
+\begin{equation}
+  \mathrm{SUS} = 2{,}5 \times \left[ \sum_{i \in \{1,3,5,7,9\}} (s_i - 1) + \sum_{i \in \{2,4,6,8,10\}} (5 - s_i) \right].
+  \label{eq:sus}
+\end{equation}
+Uma pontuação de 68 corresponde aproximadamente à média observada num grande conjunto de estudos \parencite{sauro2011practical}, sendo usada como limiar de usabilidade aceitável. \textcite{bangor2009determining} propõem ainda uma correspondência entre pontuações e adjetivos (por exemplo, \enquote{bom} ou \enquote{excelente}) que facilita a interpretação.
+
+A usabilidade não esgota a aceitação. O Modelo de Aceitação de Tecnologia (\gls{tam}) de \textcite{davis1989perceived} identifica a \textit{utilidade percebida} (o grau em que o utilizador acredita que o sistema melhora o seu desempenho) e a \textit{facilidade de utilização percebida} como determinantes da intenção de usar uma tecnologia. A utilidade percebida é especialmente relevante aqui: um agente pode ser fácil de usar e, ainda assim, não ser adotado se a equipa não considerar que poupa trabalho real.
+
+%----------------------------------------------------------------------------------------
+\section{Enquadramento Regulatório}
+\label{sec:fundamentos_regulacao}
+%----------------------------------------------------------------------------------------
+
+O desenvolvimento de sistemas de \gls{ai} numa empresa de saúde digital na União Europeia está sujeito, pelo menos, a dois instrumentos: o Regulamento Geral sobre a Proteção de Dados (\gls{rgpd}) e o Regulamento da Inteligência Artificial (\textit{AI Act}). Esta secção resume os aspetos de cada um com consequências para a conceção da solução. A análise não substitui um parecer jurídico.
+
+\subsection*{Regulamento Geral sobre a Proteção de Dados}
+
+O \gls{rgpd} \parencite{rgpd2016} aplica-se ao tratamento de dados pessoais. Os dados relativos à saúde (artigo~4.º, n.º~15) pertencem às categorias especiais de dados, cujo tratamento é, em regra, proibido salvo nas exceções previstas no artigo~9.º. Mesmo quando os processos automatizados não envolvem dados clínicos, a documentação interna de projetos pode conter dados pessoais de colaboradores, parceiros ou participantes em estudos. Os aspetos mais relevantes para este trabalho são:
+\begin{itemize}
+  \item \textbf{Princípios do tratamento} (artigo~5.º), em especial a limitação das finalidades, a minimização dos dados e o princípio da responsabilidade, que obriga o responsável pelo tratamento a conseguir demonstrar a conformidade. Para um agente, a minimização traduz-se em enviar ao modelo apenas a informação estritamente necessária para cada tarefa.
+  \item \textbf{Proteção de dados desde a conceção e por defeito} (artigo~25.º), que exige que as medidas de proteção sejam integradas na arquitetura e não acrescentadas no fim.
+  \item \textbf{Subcontratação} (artigo~28.º) e \textbf{transferências internacionais} (capítulo~V), relevantes quando o modelo é acedido através da \gls{api} de um fornecedor externo, que passa a tratar os dados enviados nos \textit{prompts}.
+  \item \textbf{Decisões individuais automatizadas} (artigo~22.º), que conferem ao titular o direito de não ficar sujeito a decisões baseadas exclusivamente em tratamento automatizado que produzam efeitos jurídicos ou o afetem significativamente. Os processos considerados neste trabalho não visam decisões desta natureza, e a supervisão humana reforça essa separação.
+  \item \textbf{Avaliação de impacto sobre a proteção de dados} (\gls{aipd}, artigo~35.º), obrigatória quando o tratamento for suscetível de implicar um elevado risco, nomeadamente com novas tecnologias e categorias especiais de dados.
+\end{itemize}
+Importa ainda notar que dados pseudonimizados continuam a ser dados pessoais (considerando~26), ao contrário de dados efetivamente anonimizados. Por esta razão, a avaliação prevista nesta dissertação recorre a dados anonimizados ou sintéticos sempre que existam restrições de confidencialidade.
+
+\subsection*{Regulamento da Inteligência Artificial}
+
+O \textit{AI Act} \parencite{aiact2024} entrou em vigor a 1 de agosto de 2024, com aplicação faseada das suas disposições. Adota uma abordagem baseada no risco, que distingue práticas proibidas (artigo~5.º), sistemas de risco elevado (artigo~6.º e anexos~I e~III), sistemas sujeitos a obrigações de transparência (artigo~50.º) e os restantes sistemas. Define ainda papéis distintos, entre os quais o de \textit{prestador} (quem desenvolve o sistema) e o de \textit{responsável pela implantação} (quem o utiliza sob a sua autoridade), e estabelece obrigações específicas para os modelos de \gls{ai} de finalidade geral, categoria em que se incluem os \glspl{llm} em que os agentes se baseiam.
+
+São classificados como de risco elevado, entre outros, os sistemas que sejam componentes de segurança de dispositivos médicos abrangidos pela legislação do anexo~I, e os sistemas usados nos domínios enumerados no anexo~III. Um agente que automatiza processos internos de documentação de \gls{id} não parece, em princípio, enquadrar-se em nenhuma destas categorias, o que deverá ser confirmado no contexto concreto da organização. Ainda assim, há obrigações transversais, como a de os prestadores e responsáveis pela implantação assegurarem um nível suficiente de literacia em \gls{ai} do seu pessoal (artigo~4.º). Além disso, os requisitos impostos aos sistemas de risco elevado constituem uma referência de boas práticas que este trabalho adota voluntariamente, em particular a manutenção de registos gerados automaticamente que permitam a rastreabilidade do funcionamento do sistema (artigo~12.º) e a conceção que permita a supervisão humana eficaz, incluindo a capacidade de compreender os resultados, de os ignorar ou reverter e de interromper o sistema (artigo~14.º). O artigo~14.º menciona explicitamente o risco de os utilizadores confiarem de forma excessiva nos resultados do sistema, isto é, o viés de automação, o que estabelece uma ligação direta entre o enquadramento regulatório e a literatura de fatores humanos discutida na Secção~\ref{sec:fundamentos_autonomia}.
+
+%----------------------------------------------------------------------------------------
+\section{Síntese}
+\label{sec:fundamentos_sintese}
+%----------------------------------------------------------------------------------------
+
+Os conceitos apresentados neste capítulo formam um conjunto de capacidades e de restrições que, em conjunto, delimitam o espaço de conceção desta dissertação. Os \glspl{llm} trazem a capacidade de compreender e produzir texto em tarefas abertas, mas não conhecem a informação interna da organização, não são determinísticos e podem alucinar. O \gls{rag} responde à primeira limitação e permite atribuir as respostas a fontes; os agentes com ferramentas permitem passar da geração de texto à execução de tarefas. Essa passagem, contudo, transforma erros de texto em erros de ação e abre novas superfícies de ataque, como a injeção de instruções indireta.
+
+A literatura de fatores humanos mostra que a resposta a estes riscos não é escolher entre automação total e trabalho manual, mas graduar a autonomia por tipo de ação e em função do impacto e da reversibilidade. Mostra também que a supervisão humana só é eficaz se for bem desenhada, porque o viés de automação e a complacência podem reduzi-la a uma formalidade. A rastreabilidade torna a supervisão verificável \emph{a posteriori}, e o enquadramento regulatório europeu, embora não classifique previsivelmente esta solução como de risco elevado, aponta na mesma direção. A Tabela~\ref{tab:sintese_implicacoes} resume as implicações destes conceitos para a solução.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Implicações dos fundamentos teóricos para a conceção da solução}
+  \label{tab:sintese_implicacoes}
+  \small
+  \begin{tabularx}{\textwidth}{@{}p{4.2cm}X@{}}
+    \toprule
+    \textbf{Conceito} & \textbf{Implicação para a solução} \\
+    \midrule
+    Limitações dos \glspl{llm} (Sec.~\ref{sec:fundamentos_llm}) & Recorrer a \gls{rag} sobre os documentos internos e registar todas as gerações. \\
+    Uso de ferramentas (Sec.~\ref{sec:fundamentos_agentes}) & Usar o ambiente de execução como ponto único de controlo de todas as ações. \\
+    Fluxos \emph{vs.} agentes (Sec.~\ref{sec:fundamentos_agentes}) & Comparar experimentalmente um fluxo fixo com um agente com ferramentas e \gls{rag}. \\
+    Níveis de automação (Sec.~\ref{sec:fundamentos_autonomia}) & Classificar as ações em autónomas, com aprovação e proibidas, segundo o impacto e a reversibilidade. \\
+    Viés de automação (Sec.~\ref{sec:fundamentos_autonomia}) & Limitar os pedidos de aprovação às ações relevantes e apresentar a justificação e as fontes em cada pedido. \\
+    Alucinações (Sec.~\ref{sec:fundamentos_riscos}) & Combinar validação automática, fundamentação em fontes e revisão humana. \\
+    Injeção e agência excessiva (Sec.~\ref{sec:fundamentos_riscos}) & Aplicar o menor privilégio e excluir as ações proibidas do conjunto de ferramentas. \\
+    Rastreabilidade (Sec.~\ref{sec:fundamentos_rastreabilidade}) & Registar 100\% das ações, decisões humanas e fontes consultadas. \\
+    Avaliação (Sec.~\ref{sec:fundamentos_avaliacao}) & Medir o tempo total (incluindo a revisão), a qualidade, a taxa de deteção de erros injetados, a \gls{sus} e a utilidade percebida. \\
+    Regulação (Sec.~\ref{sec:fundamentos_regulacao}) & Minimizar os dados enviados ao modelo, usar dados anonimizados ou sintéticos e seguir os artigos~12.º e~14.º do \textit{AI Act} como boas práticas. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+O capítulo seguinte analisa, através de uma revisão sistemática da literatura, como estes conceitos têm sido combinados em trabalhos recentes, e identifica as lacunas que esta dissertação procura preencher.

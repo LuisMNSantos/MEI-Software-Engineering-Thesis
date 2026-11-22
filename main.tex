@@ -33,9 +33,14 @@ nohyperreflinkcolor,
 headsepline,
 ]{tmdei-style}
 
+\usepackage{amsmath}
+\usepackage{tabularx}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,shapes.geometric}
+
 \usepackage[hidelinks]{hyperref}
 
-\usepackage[style=authoryear-comp,backend=biber]{biblatex}
+\usepackage[style=authoryear-comp,backend=biber,uniquename=false]{biblatex}
 \addbibresource{mainbibliography.bib}
 
 \makeglossaries
