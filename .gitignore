@@ -40,3 +40,6 @@
 
 # Configuração local
 .claude/
+
+# Teses de exemplo (apenas para referência)
+examples/
