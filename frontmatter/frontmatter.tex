@@ -27,11 +27,11 @@
 %----------------------------------------------------------------------------------------
 
 \begin{abstract}
-% Resumo alargado em português (~1000 palavras) — obrigatório para dissertações escritas em inglês.
+% Resumo alargado em português obrigatório para dissertações escritas em inglês.
 
 As organizações de saúde digital realizam frequentemente tarefas manuais e repetitivas no âmbito dos seus processos internos de investigação e desenvolvimento (I\&D), tais como a documentação de projetos, a organização de espaços de trabalho e a geração de secções recorrentes em relatórios. Estas tarefas consomem tempo significativo às equipas, limitando a capacidade de se concentrarem em trabalho de maior valor acrescentado.
 
-Os avanços recentes em modelos de linguagem de grande escala (LLM — \textit{Large Language Models}) e nas arquiteturas de agentes inteligentes abrem novas possibilidades para automatizar este tipo de fluxos de trabalho. Em particular, a combinação de agentes LLM com ferramentas externas e com Geração Aumentada por Recuperação (RAG — \textit{Retrieval-Augmented Generation}) permite criar sistemas capazes de aceder a informação contextual, executar ações sobre sistemas externos e gerar conteúdo fundamentado em documentação existente.
+Os avanços recentes em modelos de linguagem de grande escala (\textit{Large Language Models}, LLM) e nas arquiteturas de agentes inteligentes abrem novas possibilidades para automatizar este tipo de fluxos de trabalho. Em particular, a combinação de agentes LLM com ferramentas externas e com Geração Aumentada por Recuperação (\textit{Retrieval-Augmented Generation}, RAG) permite criar sistemas capazes de aceder a informação contextual, executar ações sobre sistemas externos e gerar conteúdo fundamentado em documentação existente.
 
 No entanto, o domínio da saúde impõe restrições específicas que tornam a automação direta inviável sem salvaguardas adequadas. Entre os principais riscos destacam-se as alucinações dos modelos, a execução de ações irreversíveis sem validação humana, e as obrigações de rastreabilidade e privacidade decorrentes do Regulamento Geral sobre a Proteção de Dados (RGPD) e do Regulamento Europeu de Inteligência Artificial (AI Act). A literatura existente sobre autonomia humano-máquina (Parasuraman et al., 2000; Shneiderman, 2020) fornece modelos conceptuais úteis, mas é escassa em orientações práticas sobre como operacionalizar estes princípios em contextos reais de I\&D.
 
@@ -55,7 +55,7 @@ O trabalho contribui com orientações práticas e replicáveis para a integraç
 
 \begin{abstractotherlanguage}
 
-Organisations in digital health routinely perform time-consuming manual tasks as part of their research and development (R\&D) processes — including project documentation, workspace organisation, and the generation of recurring report sections. Large Language Model (LLM) agents equipped with tools and Retrieval-Augmented Generation (RAG) offer a promising approach for automating these workflows. However, the healthcare domain introduces critical constraints: model hallucinations, the risk of irreversible actions, strict traceability requirements, and privacy obligations under the GDPR and the EU AI Act.
+Organisations in digital health routinely perform time-consuming manual tasks as part of their research and development (R\&D) processes, including project documentation, workspace organisation, and the generation of recurring report sections. Large Language Model (LLM) agents equipped with tools and Retrieval-Augmented Generation (RAG) offer a promising approach for automating these workflows. However, the healthcare domain introduces critical constraints: model hallucinations, the risk of irreversible actions, strict traceability requirements, and privacy obligations under the GDPR and the EU AI Act.
 
 This dissertation proposes a framework for designing LLM-based agents that automate selected internal R\&D processes while preserving Human-in-the-Loop (HITL) supervision at critical decision points. Following a Design Science Research methodology, the proposed artefact defines an autonomy model that distinguishes autonomous actions, approval-required actions, and prohibited actions. The study is grounded in a real-world context at VirtualCare, a Portuguese digital health company, where two to three representative processes are identified, mapped, and targeted for automation.
 
