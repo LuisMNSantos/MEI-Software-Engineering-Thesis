@@ -37,3 +37,6 @@
 
 # Editor settings
 .vscode/
+
+# Configuração local
+.claude/
