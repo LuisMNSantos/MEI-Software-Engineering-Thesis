@@ -341,6 +341,46 @@ KOMA-script documentation for details.}]{fancyhdr}
 \providecaptionname{american,australian,british,canadian,english,newzealand,UKenglish,USenglish}{\memberslabel}{Members}
 \providecaptionname{portuguese}{\memberslabel}{Vogais}
 
+%----------------------------------------------------------------------------------------
+%	COVER PAGE (capa oficial do ISEP, com imagem de fundo)
+%----------------------------------------------------------------------------------------
+
+% Data da capa no formato "Mês de Ano"; pode ser fixada com \coverdate{...}
+\newcommand*{\coverdate}[1]{\def\cdate{#1}}
+\def\cdate{\ifcase\month\or Janeiro\or Fevereiro\or Março\or Abril\or Maio\or Junho\or Julho\or Agosto\or Setembro\or Outubro\or Novembro\or Dezembro\fi\ de \number\year}
+
+% Mestrado escrito no cabeçalho da capa, por baixo da linha pontilhada
+\newcommand*{\coverprogram}[1]{\def\cprogram{#1}}
+\def\cprogram{Mestrado em Engenharia Informática}
+
+\RequirePackage{tikz}
+\newcommand{\makecoverpage}{
+	\pagenumbering{Alph} % numeração própria, para não alterar a paridade das páginas seguintes
+	\begin{titlepage}
+	\begin{tikzpicture}[remember picture,overlay]
+		\node[inner sep=0pt] at (current page.center)
+			{\includegraphics[width=\paperwidth,height=\paperheight]{frontmatter/assets/isep_capa.jpg}};
+		\node[anchor=base east, inner sep=0pt, text={rgb,255:red,56;green,76;blue,86},
+			font=\fontfamily{opensans-TLF}\fontseries{sb}\fontsize{11.6}{13}\selectfont]
+			at ([xshift=157.9mm,yshift=-31.6mm]current page.north west)
+			{\scalebox{0.84}[1]{\MakeUppercase{\cprogram}}}; % estreitado para se aproximar da Myriad Pro
+		\node[anchor=north west, inner sep=0pt, text width=128mm, align=left,
+			font={\fontfamily{opensans-TLF}\fontseries{sb}\fontsize{22}{23.2}\selectfont\hyphenchar\font=-1}]
+			at ([xshift=48mm,yshift=-111mm]current page.north west)
+			{\ttitle};
+		\node[anchor=north west, inner sep=0pt,
+			font=\fontfamily{opensans-TLF}\fontseries{sb}\fontsize{12}{14}\selectfont]
+			at ([xshift=48mm,yshift=-175.5mm]current page.north west)
+			{\MakeUppercase{\authorname}};
+		\node[anchor=north west, inner sep=0pt,
+			font=\fontfamily{opensans-TLF}\fontseries{m}\fontsize{10}{12}\selectfont]
+			at ([xshift=48mm,yshift=-181mm]current page.north west)
+			{\cdate};
+	\end{tikzpicture}
+	\end{titlepage}
+	\pagenumbering{roman} % a capa não conta: a folha de rosto volta a ser a página i
+}
+
 \newcommand{\maketitlepage}{
 	\checktoopen
 	\begin{titlepage}
