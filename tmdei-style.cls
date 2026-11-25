@@ -280,8 +280,16 @@ using package `scrlayer-scrpage', please consult the\MessageBreak
 KOMA-script documentation for details.}]{fancyhdr}
 
 
-\newcommand{\blank@p@gestyle}{empty}
+\newcommand{\blank@p@gestyle}{plain} % páginas em branco com o número (romano) da página, como nas teses do ISEP
 \newcommand{\blankpagestyle}[1]{\def\blank@p@gestyle{#1}}
+
+% Antes do Capítulo 1 cada secção começa numa página ímpar (com páginas em branco numeradas);
+% a partir do Capítulo 1 os capítulos seguem-se sem páginas em branco, como nas teses do ISEP.
+\renewcommand\mainmatter{%
+  \clearpage
+  \@openrightfalse
+  \@mainmattertrue
+  \pagenumbering{arabic}}
 
 \def\cleardoublepage{\clearpage\if@twoside \ifodd\c@page\else
 \hbox{}
