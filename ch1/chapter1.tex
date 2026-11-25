@@ -2,26 +2,249 @@
 \chapter{Introdução}
 \label{chap:introducao}
 
+% EM ABERTO (a fechar com a VirtualCare e com os orientadores antes da versão final):
+%  1. Quais são os 2 processos escolhidos (O1).
+%  2. Se as metas de O4 a O6 se mantêm ou são revistas depois do levantamento.
+%  3. Que dados podem ser usados nos ensaios e o que pode ser publicado.
+%  4. Quantas pessoas da equipa participam nos ensaios.
+%  5. Se há restrições aos LLM e APIs que podem ser usados (fornecedor, alojamento, custos).
+% Não escrever resultados neste capítulo: ainda não existem.
+
+Este capítulo apresenta o trabalho desenvolvido nesta dissertação. Começa por descrever o contexto em que surgiu e as razões que o motivam (Secção~\ref{sec:introducao_contexto}), formula o problema a resolver (Secção~\ref{sec:introducao_problema}) e as questões de investigação que dele decorrem (Secção~\ref{sec:introducao_questoes}). Em seguida, define os objetivos e as metas que permitem avaliar o seu cumprimento (Secção~\ref{sec:introducao_objetivos}), descreve a abordagem adotada e as contribuições esperadas (Secção~\ref{sec:introducao_abordagem}) e termina com a organização do resto do documento (Secção~\ref{sec:introducao_estrutura}).
+
+%----------------------------------------------------------------------------------------
 \section{Contexto e Motivação}
 \label{sec:introducao_contexto}
-% TODO: contexto da VirtualCare e motivação
+%----------------------------------------------------------------------------------------
 
+A VirtualCare é uma empresa portuguesa de saúde digital que desenvolve soluções tecnológicas para a prestação de cuidados de saúde. Tal como noutras empresas de base tecnológica, uma parte relevante da sua atividade decorre de projetos de \gls{id}, entendida aqui no sentido do Manual de Frascati: trabalho criativo e sistemático realizado com o objetivo de aumentar o conhecimento disponível e de conceber novas aplicações para esse conhecimento \parencite{oecd2015frascati}. Esta dissertação nasceu de uma proposta da própria empresa, que pretendia explorar a aplicação de \gls{ai} generativa aos seus processos internos.
+
+Os projetos de \gls{id} geram um volume considerável de trabalho de suporte que não constitui, em si, investigação nem desenvolvimento. Na VirtualCare, a equipa realiza manualmente tarefas como a documentação de projetos, a criação e organização dos espaços de trabalho de cada projeto e a preparação de secções que se repetem de relatório para relatório. Estas tarefas partilham um conjunto de características. São recorrentes e seguem estruturas relativamente estáveis; dependem de informação que já existe, mas que está dispersa por documentos, repositórios e ferramentas diferentes; e exigem rigor, porque os seus resultados são consultados por outras pessoas e, em alguns casos, entregues a entidades externas. Por serem repetitivas, consomem tempo que a equipa poderia dedicar a trabalho de maior valor acrescentado, como a conceção técnica ou a investigação propriamente dita.
+
+Os avanços recentes em \glspl{llm} vieram alterar o que é possível automatizar neste tipo de trabalho. Modelos treinados sobre grandes volumes de texto conseguem hoje resumir, reescrever, estruturar e gerar documentos a partir de instruções em linguagem natural \parencite{brown2020language,zhao2023survey}. Quando são integrados em arquiteturas de agentes, isto é, sistemas que decidem em ciclo que ação executar a seguir e que podem invocar ferramentas externas, passam também a poder consultar sistemas, criar artefactos e encadear vários passos de um processo \parencite{yao2023react,wang2024survey,xi2023rise}. A técnica de \gls{rag} permite, por sua vez, fundamentar as respostas do modelo em documentação da própria organização, em vez de depender apenas do conhecimento adquirido no treino \parencite{lewis2020retrieval}. Em conjunto, estas técnicas tornam plausível delegar num agente uma parte significativa dos processos descritos acima.
+
+A evidência empírica sobre o impacto destas ferramentas no trabalho de conhecimento é promissora, mas também mostra os seus limites. Num estudo experimental com profissionais em tarefas de escrita, \textcite{noy2023experimental} observaram uma redução substancial do tempo de execução acompanhada de uma melhoria da qualidade avaliada. Num contexto empresarial real, \textcite{brynjolfsson2025generative} registaram ganhos de produtividade num serviço de apoio ao cliente, mais pronunciados nos trabalhadores menos experientes. No entanto, \textcite{dellacqua2023navigating} mostraram que estes ganhos dependem da tarefa: em tarefas fora das capacidades do modelo, os consultores que recorreram à \gls{ai} tiveram um desempenho \emph{pior} do que os que trabalharam sem ela, em parte porque aceitaram respostas incorretas sem as verificar. Estes resultados sugerem que o benefício da automação não é automático. Depende de escolher bem as tarefas a automatizar e de manter mecanismos que permitam detetar e corrigir os erros do modelo.
+
+O setor da saúde acrescenta exigências próprias a esta discussão. Os \glspl{llm} têm sido estudados extensivamente em aplicações clínicas, com resultados notáveis mas também com alertas consistentes sobre a fiabilidade, a segurança e a responsabilização \parencite{singhal2023large,thirunavukarasu2023large}. Os processos considerados neste trabalho não envolvem decisões clínicas, mas decorrem numa organização que trata informação sensível e que está sujeita ao \gls{rgpd} \parencite{rgpd2016} e, progressivamente, ao Regulamento Europeu da Inteligência Artificial \parencite{aiact2024}. Uma solução de automação aceitável neste contexto tem de ser não só eficiente, mas também verificável, controlável e conforme.
+
+A VirtualCare pretende, por isso, perceber se e como agentes baseados em \glspl{llm} podem automatizar estes processos sem comprometer a qualidade do trabalho nem a confiança da equipa nos resultados. Do ponto de vista académico, o tema articula áreas centrais do mestrado em que este trabalho se insere, como a engenharia de requisitos, a arquitetura e a qualidade de software, com o interesse do autor pela aplicação de \gls{ai} à saúde. Trata-se de um problema em que as decisões de engenharia (que ações permitir ao agente, como registar o que faz, como avaliar o resultado) são tão determinantes como a escolha do modelo.
+
+%----------------------------------------------------------------------------------------
 \section{Problema}
 \label{sec:introducao_problema}
-% TODO: descrição do problema
+%----------------------------------------------------------------------------------------
 
+Num contexto de saúde digital, automatizar processos com \glspl{llm} obriga a conciliar dois objetivos que tendem a puxar em sentidos opostos. De um lado está a eficiência, que é maior quanto mais trabalho o agente fizer sem intervenção humana. Do outro estão o rigor, a rastreabilidade e a supervisão humana, que exigem que o trabalho do agente seja verificado e que cada ação possa ser explicada e atribuída. O problema que esta dissertação aborda é o de encontrar, para processos concretos, um ponto de equilíbrio entre estes objetivos que seja justificado e mensurável.
+
+Este equilíbrio é difícil de alcançar porque a automação com \glspl{llm} introduz riscos que não existem, ou que têm outra forma, nos sistemas de software convencionais:
+
+\begin{itemize}
+  \item \textbf{Alucinações.} Os \glspl{llm} podem gerar conteúdo fluente e plausível, mas factualmente incorreto ou não suportado pelas fontes disponíveis \parencite{ji2023survey,huang2025survey}. Num documento de projeto ou num relatório, uma afirmação inventada pode passar despercebida precisamente por estar bem escrita.
+  \item \textbf{Outputs incorretos ou incompletos.} Mesmo sem inventar factos, o agente pode omitir informação relevante, interpretar mal uma instrução ou aplicar uma estrutura errada. Quando os resultados são habitualmente bons, os revisores humanos tendem a confiar em excesso e a verificar menos, um fenómeno conhecido como viés de automação \parencite{parasuraman2010complacency,goddard2012automation}.
+  \item \textbf{Ações irreversíveis.} Um agente com acesso a ferramentas não se limita a produzir texto: pode criar, alterar ou apagar conteúdo em sistemas reais. Conceder-lhe mais permissões do que as necessárias, a chamada agência excessiva, é hoje reconhecido como um dos principais riscos das aplicações baseadas em \glspl{llm} \parencite{owasp2025top10}, agravado pela possibilidade de o agente ser manipulado por instruções escondidas nos documentos que processa \parencite{greshake2023not}.
+  \item \textbf{Rastreabilidade.} Para que um erro possa ser detetado, corrigido e atribuído, é necessário saber o que o agente fez, com base em que informação e com que aprovação. Sem registos completos, não há responsabilização possível \parencite{raji2020closing}.
+  \item \textbf{Proteção de dados e conformidade.} O tratamento de dados pessoais por um sistema de \gls{ai}, eventualmente através de serviços externos, tem de respeitar os princípios do \gls{rgpd}, e o Regulamento Europeu da Inteligência Artificial introduz obrigações de registo, transparência e supervisão humana \parencite{rgpd2016,aiact2024}.
+\end{itemize}
+
+A resposta habitual a estes riscos é manter um humano no circuito de decisão. No paradigma \gls{hitl}, o sistema executa o trabalho, mas um humano valida os passos críticos antes de estes produzirem efeitos \parencite{mosqueira2023human,hleg2019ethics}. O conceito é intuitivo, mas deixa por responder a pergunta prática decisiva: \emph{quais} são os passos críticos. Exigir aprovação para todas as ações anula os ganhos de eficiência e, a prazo, transforma a aprovação num gesto automático; não exigir nenhuma deixa os riscos acima sem controlo. A literatura sobre interação humano-automação oferece modelos conceptuais sólidos para pensar este problema, desde as escalas de níveis de automação \parencite{sheridan1978human,parasuraman2000model} até aos princípios de uma \gls{ai} centrada no ser humano \parencite{shneiderman2020human}. Faltam, contudo, critérios práticos e replicáveis que permitam decidir, ação a ação, o que um agente pode fazer sozinho, o que deve fazer apenas com aprovação humana e o que nunca deve fazer. A revisão sistemática apresentada no Capítulo~\ref{chap:estado_arte} procura confirmar e delimitar esta lacuna.
+
+A Figura~\ref{fig:espetro_autonomia} resume este compromisso. Num extremo está o processo manual, em que todo o trabalho é feito e verificado por pessoas; no outro, um agente totalmente autónomo, que executa todas as ações sem intervenção humana. Entre os dois existe um espetro de soluções intermédias. Mover a solução para a direita aumenta a eficiência potencial, mas reduz as oportunidades de detetar erros antes de produzirem efeitos; movê-la para a esquerda aumenta o controlo, mas devolve trabalho à equipa. O que esta dissertação procura não é um ponto fixo deste espetro, mas um critério para decidir, em cada ação, de que lado deve ficar.
+
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}[
+      node distance=5mm,
+      etapa/.style={draw, rounded corners, align=center, minimum height=13mm, text width=29mm, font=\small},
+      arr/.style={-{Stealth[length=2.5mm]}, thick}
+    ]
+    \node[etapa] (man) {Processo manual\\(\textit{baseline})};
+    \node[etapa, right=of man] (fix) {Fluxo fixo\\com \textit{prompts}};
+    \node[etapa, right=of fix, fill=black!8, very thick] (sel) {Agente com\\supervisão seletiva};
+    \node[etapa, right=of sel] (aut) {Agente com\\autonomia total};
+
+    \draw[arr] ([yshift=5mm]man.north west) -- node[above, font=\footnotesize]{mais autonomia do agente: maior eficiência potencial} ([yshift=5mm]aut.north east);
+    \draw[decorate, decoration={brace, mirror, amplitude=2mm}] ([yshift=-2mm]fix.south west) -- node[below=3mm, font=\footnotesize]{configurações comparadas nesta dissertação} ([yshift=-2mm]aut.south east);
+    \draw[arr] ([yshift=-15mm]aut.south east) -- node[below, font=\footnotesize]{mais intervenção humana: maior controlo e verificabilidade} ([yshift=-15mm]man.south west);
+  \end{tikzpicture}
+  \caption[Espetro entre intervenção humana e autonomia do agente]{Espetro entre intervenção humana e autonomia do agente. Os extremos favorecem um objetivo à custa do outro. A configuração destacada concentra a supervisão humana nas ações críticas, de acordo com um modelo de autonomia, e é a que esta dissertação procura conceber e validar.}
+  \label{fig:espetro_autonomia}
+\end{figure}
+
+A estas dificuldades junta-se uma restrição concreta do contexto. A confidencialidade dos dados da empresa pode limitar a informação que é possível usar durante o desenvolvimento e os ensaios, bem como o que é possível publicar nesta dissertação. Sempre que necessário, serão usados dados anonimizados ou sintéticos, que permitem reproduzir as características relevantes dos processos sem expor informação sensível.
+
+%----------------------------------------------------------------------------------------
 \section{Questões de Investigação}
 \label{sec:introducao_questoes}
-% TODO: questão principal e secundária
+%----------------------------------------------------------------------------------------
 
+O problema descrito conduz à questão de investigação principal desta dissertação:
+
+\begin{description}
+  \item[QP.] Como conceber agentes baseados em \glspl{llm} que automatizem processos internos de \gls{id} em saúde digital, mantendo supervisão humana e rastreabilidade, com ganhos mensuráveis de eficiência sem perda de qualidade nem de confiança por parte da equipa?
+\end{description}
+
+A questão principal é de natureza construtiva: a resposta toma a forma de um artefacto, composto por um modelo de autonomia e por um protótipo que o concretiza, e das orientações que dele se extraem. Para que essa resposta possa ser avaliada, é complementada por uma questão secundária, de natureza empírica:
+
+\begin{description}
+  \item[QS.] Qual é o impacto dessa automação na eficiência dos processos, na qualidade dos resultados e na aceitação por parte da equipa?
+\end{description}
+
+A questão secundária decompõe-se em três dimensões, que correspondem aos três eixos de avaliação descritos na Secção~\ref{sec:introducao_abordagem}: a eficiência, medida pelo tempo total necessário para concluir cada processo; a qualidade, medida pela correção e completude dos resultados e pela capacidade de detetar erros; e a aceitação, medida pela usabilidade percebida e pela utilidade atribuída pela equipa. Estas questões distinguem-se das questões da revisão sistemática da literatura (Capítulo~\ref{chap:estado_arte}), que se destinam a caracterizar o conhecimento existente e não a orientar a conceção da solução.
+
+%----------------------------------------------------------------------------------------
 \section{Objetivos}
 \label{sec:introducao_objetivos}
-% TODO: objetivos do trabalho
+%----------------------------------------------------------------------------------------
 
+O objetivo geral desta dissertação é conceber, implementar e avaliar agentes baseados em \glspl{llm} com supervisão humana para processos internos de \gls{id} da VirtualCare, e extrair desse trabalho orientações replicáveis para a integração deste tipo de agentes em fluxos de trabalho organizacionais sensíveis. Este objetivo concretiza-se nos sete objetivos específicos da Tabela~\ref{tab:objetivos}, cada um associado a um critério que permite verificar o seu cumprimento.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Objetivos específicos e respetivos critérios de cumprimento}
+  \label{tab:objetivos}
+  \small
+  \begin{tabularx}{\textwidth}{@{}l >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X c@{}}
+    \toprule
+    & \textbf{Objetivo} & \textbf{Critério de cumprimento} & \textbf{Cap.} \\
+    \midrule
+    O1 & Mapear processos de \gls{id} candidatos e selecionar os que serão automatizados & 2 a 3 processos mapeados e 2 selecionados com critérios explícitos (frequência, esforço, risco e qualidade) & \ref{chap:metodologia} \\
+    \addlinespace
+    O2 & Definir um modelo de autonomia para cada processo selecionado & Todas as ações classificadas como autónomas, sujeitas a aprovação ou proibidas, com justificação & \ref{chap:concecao} \\
+    \addlinespace
+    O3 & Implementar um protótipo que concretize o modelo de autonomia & Nenhuma ação irreversível executada sem aprovação; 100\% das ações registadas em \textit{log} de auditoria & \ref{chap:implementacao} \\
+    \addlinespace
+    O4 & Melhorar a eficiência dos processos & Redução de pelo menos 30\% do tempo total (geração e revisão) face ao processo manual & \ref{chap:avaliacao} \\
+    \addlinespace
+    O5 & Manter a qualidade dos resultados & Pelo menos 85\% de correção e completude; pelo menos 80\% dos erros injetados detetados & \ref{chap:avaliacao} \\
+    \addlinespace
+    O6 & Obter a aceitação da equipa & Pontuação \gls{sus} igual ou superior a 68; utilidade percebida igual ou superior a 4 em 5 & \ref{chap:avaliacao} \\
+    \addlinespace
+    O7 & Sistematizar orientações replicáveis & Orientações documentadas e validadas com a empresa & \ref{chap:conclusoes} \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+Os objetivos O1 a O3 dizem respeito à construção do artefacto e os objetivos O4 a O6 à sua avaliação; o objetivo O7 sintetiza o conhecimento produzido. Algumas metas merecem uma explicação adicional.
+
+A meta de eficiência (O4) refere-se ao \emph{tempo total} do processo, que inclui não só a geração do resultado pelo agente, mas também o tempo que a equipa gasta a rever e a corrigir esse resultado. Esta opção é deliberada: uma solução que gere documentos em segundos, mas que obrigue a uma revisão mais demorada do que a escrita manual, não representa um ganho real. Pela mesma razão, a meta de qualidade (O5) combina duas medidas. A correção e a completude avaliam os resultados produzidos face a uma grelha definida com a equipa. A taxa de deteção de erros injetados avalia a eficácia da supervisão: são introduzidos deliberadamente erros conhecidos nos resultados intermédios e mede-se a proporção que é identificada antes de produzir efeitos, pelas salvaguardas automáticas ou pelos revisores humanos. Esta segunda medida responde diretamente ao risco de viés de automação discutido na Secção~\ref{sec:introducao_problema}.
+
+A aceitação (O6) é medida com dois instrumentos. O \gls{sus} é um questionário padronizado de dez itens que produz uma pontuação de usabilidade entre 0 e 100 \parencite{brooke1996sus}; o valor de 68 corresponde aproximadamente à média observada em centenas de estudos e é habitualmente usado como limiar de usabilidade aceitável \parencite{bangor2009determining,sauro2011practical}. A utilidade percebida, um dos construtos centrais do modelo de aceitação de tecnologia de \textcite{davis1989perceived}, é medida numa escala de 1 a 5. Os dois instrumentos são apresentados em pormenor no Capítulo~\ref{chap:fundamentos}.
+
+As metas quantitativas foram definidas na proposta desta dissertação com base na literatura e nas expectativas iniciais da empresa. Poderão ser ajustadas depois do levantamento dos processos, caso este revele características que as tornem desadequadas; qualquer ajuste será justificado no Capítulo~\ref{chap:metodologia}, antes do início dos ensaios.
+% TODO: validar as metas de O4 a O6 com a VirtualCare e com os orientadores antes de as fixar.
+
+%----------------------------------------------------------------------------------------
 \section{Abordagem}
 \label{sec:introducao_abordagem}
-% TODO: abordagem seguida
+%----------------------------------------------------------------------------------------
 
+O trabalho segue a metodologia \gls{dsr}, que enquadra a investigação como a construção e avaliação de um artefacto concebido para resolver um problema prático relevante \parencite{hevner2004design}. A escolha justifica-se pela natureza da questão principal: o que se pretende não é apenas descrever ou explicar um fenómeno, mas conceber uma solução e demonstrar, com evidência, que ela cumpre os objetivos definidos. Neste trabalho, o artefacto é composto pelo modelo de autonomia e pelo protótipo de agentes que o concretiza. O processo segue as seis atividades propostas por \textcite{peffers2007design}, cuja concretização neste trabalho se resume na Tabela~\ref{tab:dsr_atividades}.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Concretização das atividades da \gls{dsr} neste trabalho}
+  \label{tab:dsr_atividades}
+  \small
+  \begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.6cm} >{\raggedright\arraybackslash}X c@{}}
+    \toprule
+    \textbf{Atividade} & \textbf{Concretização} & \textbf{Cap.} \\
+    \midrule
+    Identificação do problema e motivação & Contexto da VirtualCare, revisão da literatura e levantamento dos processos por entrevistas à equipa de \gls{id} & \ref{chap:introducao}, \ref{chap:estado_arte}, \ref{chap:metodologia} \\
+    \addlinespace
+    Definição dos objetivos da solução & Objetivos O1 a O7 e requisitos derivados do levantamento & \ref{chap:introducao}, \ref{chap:metodologia} \\
+    \addlinespace
+    Conceção e desenvolvimento & Modelo de autonomia, arquitetura dos agentes e protótipo para os dois processos selecionados & \ref{chap:concecao}, \ref{chap:implementacao} \\
+    \addlinespace
+    Demonstração & Utilização do protótipo pela equipa em casos reais ou representativos dos processos & \ref{chap:implementacao} \\
+    \addlinespace
+    Avaliação & Ensaios comparativos nos eixos de eficiência, qualidade e aceitação & \ref{chap:avaliacao} \\
+    \addlinespace
+    Comunicação & Esta dissertação e as orientações entregues à empresa & \ref{chap:conclusoes} \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+Em termos práticos, o trabalho desenvolve-se em quatro passos. Primeiro, é feito o levantamento dos processos candidatos através de entrevistas à equipa de \gls{id}, de modo a descrever cada processo, estimar o esforço que exige e identificar os seus riscos; daqui resulta a seleção dos dois processos a automatizar (O1). Segundo, é desenhado o modelo de autonomia de cada processo, que classifica cada ação possível do agente numa de três categorias: autónoma, sujeita a aprovação ou proibida (O2). É também desenhada a arquitetura dos agentes, incluindo as ferramentas a que têm acesso, a componente de \gls{rag} e o mecanismo de registo. Terceiro, é implementado um protótipo funcional para os dois processos (O3). Quarto, são realizados ensaios comparativos com a equipa (O4 a O6).
+
+A Figura~\ref{fig:visao_geral} apresenta a visão geral da solução que resulta destes passos. A equipa formula um pedido e o agente, apoiado na documentação da empresa através de \gls{rag}, planeia o trabalho e propõe as ações necessárias. Nenhuma ação é executada diretamente: cada uma passa primeiro pelo modelo de autonomia, que a encaminha conforme a sua classe. As ações autónomas são executadas de imediato; as ações sujeitas a aprovação aguardam a decisão de um revisor humano; as ações proibidas são bloqueadas. Todas as ações e decisões, incluindo as aprovações e as rejeições, ficam guardadas no registo de auditoria, o que permite reconstituir, a qualquer momento, o que o agente fez, com base em que informação e com a autorização de quem.
+
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}[
+      box/.style={draw, rounded corners, align=center, minimum height=11mm, text width=30mm, font=\small},
+      gate/.style={draw, rounded corners, very thick, fill=black!8, align=center, minimum height=11mm, text width=56mm, font=\small},
+      arr/.style={-{Stealth[length=2.5mm]}, thick},
+      log/.style={-{Stealth[length=2mm]}, dashed},
+      lbl/.style={font=\footnotesize}
+    ]
+    \node[box] (team) at (0,0) {Equipa de \gls{id}};
+    \node[box, text width=42mm] (agent) at (5,0) {Agente \gls{llm}\\(planeia e propõe ações)};
+    \node[box] (docs) at (10,0) {Documentação\\da empresa};
+    \node[gate] (model) at (5,-2.2) {Modelo de autonomia\\(classifica cada ação proposta)};
+    \node[box] (auto) at (0,-4.4) {Ação autónoma};
+    \node[box] (appr) at (5,-4.4) {Ação sujeita\\a aprovação};
+    \node[box] (forb) at (10,-4.4) {Ação proibida};
+    \node[box] (exec) at (0,-6.6) {Execução nas\\ferramentas e sistemas};
+    \node[box] (human) at (5,-6.6) {Revisor humano\\(aprova ou rejeita)};
+    \node[box] (block) at (10,-6.6) {Bloqueada\\(nunca executada)};
+    \node[draw, rounded corners, align=center, minimum height=9mm, minimum width=130mm, font=\small] (audit) at (5,-8.6) {Registo de auditoria: todas as ações e decisões};
+
+    \draw[arr] (team) -- node[above, lbl]{pedido} (agent);
+    \draw[arr] (docs) -- node[above, lbl]{\gls{rag}} (agent);
+    \draw[arr] (agent) -- node[right, lbl]{ação proposta} (model);
+    \draw[arr] (model.south) ++(-1.6,0) -- (auto.north east);
+    \draw[arr] (model) -- (appr);
+    \draw[arr] (model.south) ++(1.6,0) -- (forb.north west);
+    \draw[arr] (auto) -- (exec);
+    \draw[arr] (appr) -- (human);
+    \draw[arr] (forb) -- (block);
+    \draw[arr] (human) -- node[above, lbl]{aprovada} (exec);
+    \draw[log] (exec) -- (exec |- audit.north);
+    \draw[log] (human) -- (audit);
+    \draw[log] (block) -- (block |- audit.north);
+  \end{tikzpicture}
+  \caption[Visão geral da solução proposta]{Visão geral da solução proposta. O agente apenas propõe ações; o modelo de autonomia decide se cada uma é executada de imediato, submetida a um revisor humano ou bloqueada. Todas as ações e decisões ficam no registo de auditoria.}
+  \label{fig:visao_geral}
+\end{figure}
+
+A avaliação assenta em três eixos, que respondem às três dimensões da questão secundária:
+
+\begin{itemize}
+  \item \textbf{Eficiência:} tempo total de execução de cada processo, incluindo geração e revisão, comparado com o do processo manual.
+  \item \textbf{Qualidade:} correção e completude dos resultados, avaliadas com uma grelha definida em conjunto com a equipa, e taxa de deteção de erros injetados.
+  \item \textbf{Aceitação:} questionário \gls{sus} e inquérito sobre a utilidade percebida e a confiança nos resultados.
+\end{itemize}
+
+Para perceber que fatores explicam os resultados, e não apenas se a solução final funciona, são comparadas pelo menos três configurações com diferentes graus de autonomia: um fluxo fixo baseado em \textit{prompts}, em que a sequência de passos é definida pelo programador e o modelo não decide que ações executar; um agente com ferramentas e \gls{rag}, que decide autonomamente a sequência de ações; e variantes intermédias com diferentes níveis de supervisão humana, obtidas aplicando o modelo de autonomia. Estas configurações correspondem a posições distintas do espetro da Figura~\ref{fig:espetro_autonomia}. O termo de comparação (\textit{baseline}) é o processo manual atualmente seguido pela equipa. Esta comparação permite separar o efeito da tecnologia (o \gls{llm} e o \gls{rag}) do efeito do grau de autonomia concedido, que é a variável central desta dissertação.
+
+O trabalho está organizado em duas fases. Na primeira, correspondente ao primeiro semestre, realizam-se a revisão do estado da arte, o levantamento dos processos e o desenho do modelo de autonomia e da arquitetura. Na segunda, correspondente ao segundo semestre, realizam-se a implementação do protótipo, os ensaios com a equipa e a conclusão da escrita da dissertação.
+
+Com esta abordagem, espera-se que o trabalho produza as seguintes contribuições:
+
+\begin{enumerate}
+  \item um \textbf{modelo de autonomia} que classifica as ações de um agente em autónomas, sujeitas a aprovação ou proibidas, com critérios explícitos para essa classificação;
+  \item um \textbf{protótipo} de agentes baseados em \glspl{llm} para dois processos reais de \gls{id}, com supervisão humana nos pontos críticos e registo de auditoria completo;
+  \item \textbf{evidência empírica} sobre a eficiência e a qualidade obtidas com diferentes níveis de autonomia, num contexto organizacional real de saúde digital;
+  \item um conjunto de \textbf{orientações replicáveis} para a integração de agentes baseados em \glspl{llm} em fluxos de trabalho organizacionais sensíveis, validadas com a empresa.
+\end{enumerate}
+
+%----------------------------------------------------------------------------------------
 \section{Estrutura do Documento}
 \label{sec:introducao_estrutura}
-% TODO: descrição dos capítulos
+%----------------------------------------------------------------------------------------
+
+Além desta introdução, o documento está organizado em mais sete capítulos.
+
+O Capítulo~\ref{chap:fundamentos}, \textit{Fundamentos Teóricos}, apresenta os conceitos em que o trabalho assenta: os \glspl{llm}, os agentes e o uso de ferramentas, o \gls{rag}, os modelos de autonomia e supervisão humana, os riscos associados, a rastreabilidade, as métricas de avaliação e o enquadramento regulatório europeu.
+
+O Capítulo~\ref{chap:estado_arte}, \textit{Estado da Arte}, descreve a revisão sistemática da literatura, conduzida segundo as diretrizes de \textcite{kitchenham2007guidelines} e reportada segundo o \gls{prisma} \parencite{page2021prisma}, e identifica as lacunas a que esta dissertação procura responder.
+
+O Capítulo~\ref{chap:metodologia}, \textit{Metodologia e Análise do Problema}, detalha a aplicação da \gls{dsr}, apresenta o levantamento dos processos na VirtualCare, os requisitos identificados e os critérios que justificam a seleção dos dois processos a automatizar.
+
+O Capítulo~\ref{chap:concecao}, \textit{Conceção da Solução}, apresenta o modelo de autonomia, a arquitetura dos agentes e os mecanismos de deteção de erros, salvaguarda e rastreabilidade.
+
+O Capítulo~\ref{chap:implementacao}, \textit{Implementação}, descreve o protótipo desenvolvido e a sua integração nos processos selecionados.
+
+O Capítulo~\ref{chap:avaliacao}, \textit{Avaliação}, define o protocolo de avaliação e as métricas usadas, descreve as configurações comparadas e o \textit{baseline}, e apresenta e discute os resultados obtidos.
+
+Por fim, o Capítulo~\ref{chap:conclusoes}, \textit{Conclusões e Trabalho Futuro}, responde às questões de investigação, sintetiza as contribuições e as orientações produzidas, discute as limitações do trabalho e aponta direções para trabalho futuro.
